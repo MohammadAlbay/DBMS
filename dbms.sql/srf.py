@@ -1,4 +1,3 @@
-
 def lt(v1, v2):
     return v1 < v2
 def eq(v1, v2):
@@ -158,7 +157,7 @@ def parse_condition(sample: str) -> list[ConditionClaus()]:
 def evaluate_condition(collection:list[ConditionClaus()]):
     resultCollection = []
     for c in collection:
-        result = False
+        result = True
         if c.isLinkClaus(): 
             # islinkclaus ||
             ls = evaluate_condition(c.innerRelatedConditions)
@@ -173,6 +172,12 @@ def evaluate_condition(collection:list[ConditionClaus()]):
         ic = c.next
         while ic != None:
             cond = ic.condition
+            if ic.isLinkClaus():
+                ls = evaluate_condition(ic.innerRelatedConditions)
+                print("Sub condition :"+repr(ls))
+                if ls == False:
+                    result = False
+                    break
             if cond == None: 
                 break
             print(str(cond.lvalue) + "/"+ str(cond.rvalue))
@@ -180,12 +185,11 @@ def evaluate_condition(collection:list[ConditionClaus()]):
             if iresult == False:
                 result = False
                 break
+
             ic = ic.next
         resultCollection.append(result)
         print(resultCollection) 
     return True in resultCollection
 
-c = parse_condition("1==1 || (3==3.2 && -5 > -1 || 100 > 99)")
+c = parse_condition("2 > 1 && (A=A && (1==1.1 || 9<5))")
 print("result is  "+str(evaluate_condition(c)))
-
-# id < 10 | name = '12' && nigga is True
