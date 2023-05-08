@@ -1,3 +1,4 @@
+
 def lt(v1, v2):
     return v1 < v2
 def eq(v1, v2):
@@ -16,13 +17,21 @@ class Condition:
         self.lvalue = None
         self.rvalue = None
         self.function = None
+        self.labels = {}
+        self.requireValueBiding = False
 
-    def addValue(self, v) -> bool:
+    def addValue(self, v, requireValueBiding:bool = False) -> bool:
         if self.lvalue == None:
             self.lvalue = v
+            if requireValueBiding:
+                self.requireValueBiding = True
+                self.labels[v] = {"obj": 0}
             print("Condition: added L-value")
         else:
             self.rvalue = v
+            if requireValueBiding:
+                self.requireValueBiding = True
+                self.labels[v] = {"obj": 1}
             print("Condition: added R-value")
             return True
         return False
@@ -30,6 +39,15 @@ class Condition:
     def addFunction(self, f):
         self.function = f
         print("Condition: function set")
+    def bindValues(self, data) ->None:
+        if self.requireValueBiding:
+            for label in self.labels:
+                if label in data:
+                    if self.labels[label]['obj'] == 0: 
+                        self.lvalue = data[label]
+                    else:
+                        self.rvalue = data[label]
+                    
 
 class ConditionClaus:
     def __init__(self):
@@ -60,8 +78,6 @@ def parse_condition(sample: str) -> list[ConditionClaus()]:
 
     currentClaus = collection[0]
     cond = Condition()
-    currentFunction = None
-    lastOperand = None
     while index < length:
         c = sample[index]
 
@@ -87,6 +103,22 @@ def parse_condition(sample: str) -> list[ConditionClaus()]:
             #if lastOperand == '&&':
             currentClaus.setAsLink(parse_condition(buff))
             index = j
+        elif c == "'":
+            buff = ''
+            j = index+1
+            innerBracets = 0
+            while j < length:
+                ic = sample[j]
+                if sample[j] == "'" and j-1 >= 0 and sample[j-1] != '\\':
+                    break
+                
+                buff += ic
+                j += 1
+
+            if cond.addValue(buff):
+                currentClaus.setCondition(cond)
+                cond = Condition()
+            index = j
         elif c.isalpha():
             buff = c
             j = index + 1
@@ -98,10 +130,10 @@ def parse_condition(sample: str) -> list[ConditionClaus()]:
                     buff += sample[j]
 
                 j += 1
-            if cond.addValue(buff):
+            
+            if cond.addValue(buff, True):
                 currentClaus.setCondition(cond)
-                cond = Condition()
-            print("Collected : "+buff)            
+                cond = Condition()         
             index = j
         elif c.isdigit() or (c == '-' and index+1 < length and sample[index+1].isdigit()):
             buff = c
@@ -137,14 +169,18 @@ def parse_condition(sample: str) -> list[ConditionClaus()]:
             index += 1
         elif c == '!' and index+1 < length and sample[index+1] == '=':
             cond.addFunction(ne)
-        elif c == '=':
+            index += 1
+        elif c == '=' and index+1 < length and sample[index+1] == '=':
             cond.addFunction(eq)
+            index += 1
         elif c == '<' and index+1 < length and sample[index+1] == '=':
             cond.addFunction(le)
+            index += 1
         elif c == '<':
             cond.addFunction(lt)
         elif c == '>' and index+1 < length and sample[index+1] == '=':
             cond.addFunction(ge)
+            index += 1
         elif c == '>':
             cond.addFunction(gt)
         else:
@@ -154,7 +190,7 @@ def parse_condition(sample: str) -> list[ConditionClaus()]:
 
     return collection
 
-def evaluate_condition(collection:list[ConditionClaus()]):
+def evaluate_condition(collection:list[ConditionClaus()], data:{} = None):
     resultCollection = []
     for c in collection:
         result = True
@@ -163,11 +199,16 @@ def evaluate_condition(collection:list[ConditionClaus()]):
             ls = evaluate_condition(c.innerRelatedConditions)
             print("Sub condition :"+repr(ls))
             result = ls
-        cond = c.condition
-        if cond != None: # in case 1==1 && (0 > 9) the new ConditionClaus.condition would be none
-            print("L:"+str(cond.lvalue) + ", R:"+ str(cond.rvalue))
+        else:
+            cond = c.condition
+            if cond != None: # in case 1==1 && (0 > 9) the new ConditionClaus.condition would be none
+                print("L:"+str(cond.lvalue) + ", R:"+ str(cond.rvalue))
+
+            if data != None:
+                cond.bindValues(data)
             result = cond.function(cond.lvalue, cond.rvalue)
 
+        resultCollection.append(result)
         # islinkclaus &&
         ic = c.next
         while ic != None:
@@ -176,20 +217,44 @@ def evaluate_condition(collection:list[ConditionClaus()]):
                 ls = evaluate_condition(ic.innerRelatedConditions)
                 print("Sub condition :"+repr(ls))
                 if ls == False:
-                    result = False
+                    resultCollection.append(False)
                     break
             if cond == None: 
                 break
-            print(str(cond.lvalue) + "/"+ str(cond.rvalue))
+            print(str(cond.lvalue) + "/" + str(cond.rvalue))
+            if data != None:
+                cond.bindValues(data)
             iresult = cond.function(cond.lvalue, cond.rvalue)
             if iresult == False:
-                result = False
+                resultCollection.append(False)
                 break
 
             ic = ic.next
-        resultCollection.append(result)
+
         print(resultCollection) 
     return True in resultCollection
 
-c = parse_condition("2 > 1 && (A=A && (1==1.1 || 9<5))")
-print("result is  "+str(evaluate_condition(c)))
+
+dataRow = []
+dataRow.append({
+    "ID": 15,
+    "Name": "Mohammad s. Albay",
+    "Age": 24,
+    "Birthdate": "24-4-1999"
+})
+dataRow.append({
+    "ID": 16,
+    "Name": "Abdo s. Albay",
+    "Age": 20,
+    "Birthdate": "24-4-1999"
+})
+dataRow.append({
+    "ID": 17,
+    "Name": "Salma Tresh",
+    "Age": 52,
+    "Birthdate": "24-4-1976"
+})
+c = parse_condition("ID < 17 && Age <= 24")
+for data in dataRow:
+    print("Data:"+repr(data))
+    print("result is  "+str(evaluate_condition(c,data)))
