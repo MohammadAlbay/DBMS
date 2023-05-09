@@ -1,4 +1,3 @@
-
 def lt(v1, v2):
     return v1 < v2
 def eq(v1, v2):
@@ -197,12 +196,12 @@ def evaluate_condition(collection:list[ConditionClaus()], data:{} = None):
         if c.isLinkClaus(): 
             # islinkclaus ||
             ls = evaluate_condition(c.innerRelatedConditions)
-            print("Sub condition :"+repr(ls))
+            #print("Sub condition :"+repr(ls))
             result = ls
         else:
             cond = c.condition
-            if cond != None: # in case 1==1 && (0 > 9) the new ConditionClaus.condition would be none
-                print("L:"+str(cond.lvalue) + ", R:"+ str(cond.rvalue))
+            if cond == None: # in case 1==1 && (0 > 9) the new ConditionClaus.condition would be none
+                raise Exception("ConditionClaus.condtion is None")
 
             if data != None:
                 cond.bindValues(data)
@@ -215,13 +214,13 @@ def evaluate_condition(collection:list[ConditionClaus()], data:{} = None):
             cond = ic.condition
             if ic.isLinkClaus():
                 ls = evaluate_condition(ic.innerRelatedConditions)
-                print("Sub condition :"+repr(ls))
+                #print("Sub condition :"+repr(ls))
                 if ls == False:
                     resultCollection.append(False)
                     break
             if cond == None: 
                 break
-            print(str(cond.lvalue) + "/" + str(cond.rvalue))
+            #print(str(cond.lvalue) + "/" + str(cond.rvalue))
             if data != None:
                 cond.bindValues(data)
             iresult = cond.function(cond.lvalue, cond.rvalue)
@@ -231,7 +230,7 @@ def evaluate_condition(collection:list[ConditionClaus()], data:{} = None):
 
             ic = ic.next
 
-        print(resultCollection) 
+        #print(resultCollection) 
     return True in resultCollection
 
 
@@ -254,7 +253,15 @@ dataRow.append({
     "Age": 52,
     "Birthdate": "24-4-1976"
 })
+
+print("Process: Building condition...")
 c = parse_condition("ID < 17 && Age <= 24")
-for data in dataRow:
-    print("Data:"+repr(data))
-    print("result is  "+str(evaluate_condition(c,data)))
+if c == None or c.__len__() == 0:
+    print("Process: Error, faield to build condition")
+else:
+    print("Process: data selection phase...")
+    for data in dataRow:
+        if evaluate_condition(c,data):
+            print ("Passed : "+ repr(data))
+        else:
+            print ("Not passed : "+ repr(data))
